@@ -1,5 +1,5 @@
 import copy, json
-from machine_learning.connection_recognition import find_connections
+from machine_learning.connection import find_connections
 from machine_learning.label_recognition import recognize_text
 from machine_learning.box import Box, BoxSerializer
 
@@ -21,6 +21,7 @@ class Prediction():
         self.boxes = self.extract_boxes(classes, prediction)
         self.attatch_connections()
         self.attatch_labels()
+        
         self.forest = self.create_forest() 
     
     def extract_boxes(self, classes, prediction):
@@ -37,7 +38,15 @@ class Prediction():
         for box in self.boxes:
             new_boxes.append(box)
             if box.class_ in connection_classes: continue
+            if len(box.connections) != 2: box.connections = []
             box.connections = find_connections(box, self.boxes)
+        return new_boxes
+    
+    def update_connections(self):
+        new_boxes = []
+        for box in self.boxes:
+            new_boxes.append(box)
+            # blabla
         return new_boxes
     
     def attatch_labels(self):
