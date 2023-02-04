@@ -1,5 +1,5 @@
 import copy, json
-from machine_learning.connection import find_connections
+from machine_learning.connection_recognition import find_connections
 from machine_learning.label_recognition import recognize_text
 from machine_learning.box import Box, BoxSerializer
 
@@ -19,8 +19,8 @@ class Prediction():
     def __init__(self, image, classes, prediction):
         self.image = image
         self.boxes = self.extract_boxes(classes, prediction)
-        self.attatch_connections()
-        self.attatch_labels()
+        self.boxes = self.attatch_connections()
+        self.boxes = self.attatch_labels()
         
         self.forest = self.create_forest() 
     
@@ -36,21 +36,31 @@ class Prediction():
     def attatch_connections(self):
         new_boxes = []
         for box in self.boxes:
-            new_boxes.append(box)
+            new_boxes.append(copy.copy(box))
             if box.class_ in connection_classes: continue
             if len(box.connections) != 2: box.connections = []
             box.connections = find_connections(box, self.boxes)
         return new_boxes
     
     def update_connections(self):
+        def box_midpoint(box):
+            (x1, y1, x2, y2) = box.XYXY
+            return [(x1-x2)//2, (y1-y2)//2]
         new_boxes = []
         for box in self.boxes:
-            new_boxes.append(box)
-            # blabla
+            new_boxes.append(copy.copy(box))
+            if box.class_ not in connection_classes: continue
+            [id1, id2] = box.connections
+            box1 = [b for b in self.boxes if b.id == id1][0]
+            box2 = [b for b in self.boxes if b.id == id2][0]
+            box1_midpoint = box_midpoint(box1)
+            box2_midpoint = box_midpoint(box2)
+            box.connections = box1_midpoint + box2_midpoint
+        return self.boxes
         return new_boxes
     
     def attatch_labels(self):
-        self.boxes = self.boxes +  recognize_text(self.image)
+        return self.boxes + recognize_text(self.image)
     
     def create_forest(self):
         relations = _find_relations(self.boxes)
