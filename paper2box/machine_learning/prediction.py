@@ -19,8 +19,9 @@ class Prediction():
     def __init__(self, image, classes, prediction):
         self.image = image
         self.boxes = self.extract_boxes(classes, prediction)
-        self.boxes = self.attatch_connections()
-        self.boxes = self.attatch_labels()
+        self.attatch_connections()
+        self.update_connections()
+        self.attatch_labels()
         
         self.forest = self.create_forest() 
     
@@ -34,33 +35,31 @@ class Prediction():
         return boxes
     
     def attatch_connections(self):
-        new_boxes = []
         for box in self.boxes:
-            new_boxes.append(copy.copy(box))
             if box.class_ in connection_classes: continue
-            if len(box.connections) != 2: box.connections = []
+            if len(box.connections) < 2: box.connections = []
             box.connections = find_connections(box, self.boxes)
-        return new_boxes
     
     def update_connections(self):
         def box_midpoint(box):
             (x1, y1, x2, y2) = box.XYXY
-            return [(x1-x2)//2, (y1-y2)//2]
-        new_boxes = []
+            return [(x1+x2)//2, (y1+y2)//2]
         for box in self.boxes:
-            new_boxes.append(copy.copy(box))
-            if box.class_ not in connection_classes: continue
-            [id1, id2] = box.connections
+            if len(box.connections) < 2: continue
+            [id1, id2, *_] = box.connections
             box1 = [b for b in self.boxes if b.id == id1][0]
             box2 = [b for b in self.boxes if b.id == id2][0]
-            box1_midpoint = box_midpoint(box1)
-            box2_midpoint = box_midpoint(box2)
-            box.connections = box1_midpoint + box2_midpoint
-        return self.boxes
-        return new_boxes
+            (m1_x, m1_y) = box_midpoint(box1)
+            (m2_x, m2_y) = box_midpoint(box2)
+            box.XYXY = [min(m1_x, m2_x), min(m1_y, m2_y), max(m1_x, m2_x), max(m1_y, m2_y)]
+            (x, y, _, _) = box.XYXY
+            if m1_x == x and m1_y == y or m2_x == x and m2_y == y:
+                box.direction = 'down'
+            else: box.direction = 'up'
+            print(box.XYXY)
     
     def attatch_labels(self):
-        return self.boxes + recognize_text(self.image)
+        self.boxes = self.boxes + recognize_text(self.image)
     
     def create_forest(self):
         relations = _find_relations(self.boxes)
@@ -71,7 +70,9 @@ class Prediction():
         return box_forest
 
     def forest_to_json(self):
-        return json.dumps(self.forest, indent=4, cls=BoxSerializer)
+        return_val = json.dumps(self.forest, indent=4, cls=BoxSerializer)
+        print(return_val)
+        return return_val
 
     def to_json(self):
         return self.forest_to_json()

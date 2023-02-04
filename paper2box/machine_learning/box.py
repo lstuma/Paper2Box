@@ -7,6 +7,7 @@ class Box():
         self.confidence = confidence
         self.XYXY = [int(val) for val in XYXY]
         self.text = ""
+        self.direction = ""
         self.children = []
         self.connections = []
         self.id = Box.current_id
